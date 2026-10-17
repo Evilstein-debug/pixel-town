@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-parchment: #f6ecc9;
+  --color-parchment-dark: #e6d7a8;
+  --color-ink: #1f2a26;
+  --color-moss: #2f6b3a;
+  --color-leaf: #5dae48;
+  --color-gold: #e0a92e;
+  --font-pixel: "Press Start 2P", monospace;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Chunky retro panel: 2px border + hard offset shadow. */
+@utility pixel-panel {
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  border: 2px solid var(--color-ink);
+  box-shadow: 3px 3px 0 0 var(--color-ink);
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: #2a4d2c; overflow: hidden; }
+canvas, img.pixelated { image-rendering: pixelated; }
+
+@keyframes flash-in {
+  0% { background: #fff4b8; transform: translateX(6px); opacity: 0; }
+  30% { opacity: 1; transform: none; }
+  100% { background: transparent; }
+}
+.flash-in { animation: flash-in 1.2s ease-out; }
+
+@keyframes retrieved-hl {
+  0%, 60% { box-shadow: 0 0 0 2px #5dae48, 3px 3px 0 2px #2f6b3a; background-color: #e7f6dc; }
+  100% { box-shadow: none; }
+}
+.retrieved-hl { animation: retrieved-hl 4s ease-out forwards; }

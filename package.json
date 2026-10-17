@@ -1,0 +1,14 @@
+{
+  "name": "pixel-town",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["shared", "server", "client"],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c green,cyan \"npm:dev -w server\" \"npm:dev -w client\"",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pixel-town/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./map": "./map.ts",
+    "./types": "./types.ts",
+    "./events": "./events.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}

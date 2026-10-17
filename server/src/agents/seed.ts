@@ -1,0 +1,42 @@
+import type { AgentPublic } from '@pixel-town/shared';
+
+export interface AgentSeed extends Omit<AgentPublic, 'action' | 'statusIcon' | 'locationId' | 'facing'> {
+  homeId: string;
+  relationships: string;
+}
+
+export const AGENT_SEEDS: AgentSeed[] = [
+  {
+    id: 'asha',
+    name: 'Asha',
+    age: 24,
+    occupation: 'Runs Chai & Co. Café',
+    bio: "Asha Kulkarni runs Chai & Co. Café. Warm, chatty, knows everyone's order and loves hosting small events. Opens the café at 8:00.",
+    appearance: { shirt: '#d9534f', hair: '#2b1d14', skin: '#c68a5e', pants: '#3d4a6b' },
+    tileX: 5, tileY: 4,
+    homeId: 'asha_house',
+    relationships: 'Close friends with Meera. Rohan is a regular at her café.',
+  },
+  {
+    id: 'rohan',
+    name: 'Rohan',
+    age: 21,
+    occupation: 'Engineering student',
+    bio: 'Rohan Deshpande is an engineering student into robotics. A bit shy but curious. Spends afternoons at the library and jogs in the park in the evenings.',
+    appearance: { shirt: '#3b7fc4', hair: '#1a1a22', skin: '#b5794f', pants: '#4a4238' },
+    tileX: 34, tileY: 4,
+    homeId: 'rohan_house',
+    relationships: "A regular at Asha's café. Barely knows Meera.",
+  },
+  {
+    id: 'meera',
+    name: 'Meera',
+    age: 67,
+    occupation: 'Retired schoolteacher',
+    bio: 'Meera Iyer is a retired schoolteacher. Tends the park flowers every morning, reads the town notice board daily, and loves passing on news.',
+    appearance: { shirt: '#9b59b6', hair: '#d8d4cc', skin: '#a8714a', pants: '#5a3e2b' },
+    tileX: 5, tileY: 24,
+    homeId: 'meera_house',
+    relationships: "Close friends with Asha. Barely knows Rohan.",
+  },
+];
