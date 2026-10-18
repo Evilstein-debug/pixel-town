@@ -1,7 +1,7 @@
 // HUD overlays drawn on top of the game canvas.
 import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '@pixel-town/shared';
-import { bus, type CameraMode, type InputSource } from '../bus';
+import { bus, type CameraMode } from '../bus';
 import { socket } from '../net/socket';
 import { useWorld } from '../world/store';
 import { Chip, PixelButton } from './ui';
@@ -82,13 +82,10 @@ function SnapshotMenu() {
 
 export function TopRightHud() {
   const w = useWorld();
-  const source = useBusState<InputSource>((set) => bus.on('input:source', set), 'keyboard');
   const mode = useBusState<CameraMode>((set) => bus.on('camera:mode', set), { kind: 'free' });
-  const label = { keyboard: 'Keyboard', 'mouse-mock': 'Mouse-mock', watch: 'Watch' }[source];
   const lockedName = mode.kind === 'locked' ? w.agents[mode.agentId]?.name ?? mode.agentId : null;
   return (
     <div className="absolute right-3 top-3 flex gap-2">
-      <Chip>{label}</Chip>
       <Chip className={lockedName ? 'bg-moss! text-parchment!' : ''}>
         {lockedName ? `LOCKED: ${lockedName}` : 'FREE'}
       </Chip>

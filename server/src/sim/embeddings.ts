@@ -1,5 +1,7 @@
 // Local sentence embeddings via transformers.js (all-MiniLM-L6-v2). If the model
 // can't load (offline, etc.) relevance falls back to keyword overlap.
+import { EMBEDDING_MODEL } from '../config/embedding';
+
 type Extractor = (text: string, opts: { pooling: 'mean'; normalize: boolean }) => Promise<{ data: Float32Array }>;
 
 let extractor: Extractor | null = null;
@@ -8,9 +10,9 @@ let status: 'loading' | 'ready' | 'fallback' = 'loading';
 export async function initEmbeddings() {
   try {
     const { pipeline } = await import('@huggingface/transformers');
-    extractor = (await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { dtype: 'fp32' })) as unknown as Extractor;
+    extractor = (await pipeline('feature-extraction', EMBEDDING_MODEL, { dtype: 'fp32' })) as unknown as Extractor;
     status = 'ready';
-    console.log('[embed] all-MiniLM-L6-v2 loaded');
+    console.log(`[embed] ${EMBEDDING_MODEL} loaded`);
   } catch (err) {
     status = 'fallback';
     console.warn('[embed] model failed to load, using keyword relevance:', (err as Error).message);

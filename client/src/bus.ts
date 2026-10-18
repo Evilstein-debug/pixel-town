@@ -3,7 +3,6 @@
 import type { ConversationRecord, WorldSnapshot, WorldTick } from '@pixel-town/shared';
 
 export type CameraMode = { kind: 'free' } | { kind: 'locked'; agentId: string };
-export type InputSource = 'keyboard' | 'mouse-mock' | 'watch';
 
 export interface BusEvents {
   'world:snapshot': WorldSnapshot;
@@ -12,7 +11,6 @@ export interface BusEvents {
   conversation: ConversationRecord;
   'camera:mode': CameraMode;
   'camera:zoom': number;
-  'input:source': InputSource;
   /** Ask the camera to lock onto an agent (from the HUD). */
   'camera:lock': string;
   /** Open the seed dialog for an agent. */

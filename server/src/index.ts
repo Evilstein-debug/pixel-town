@@ -3,11 +3,12 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@pixel-town/shared';
+import { env } from './config/env';
 import { initEmbeddings } from './sim/embeddings';
 import { Sim } from './sim/sim';
 import { createWorld, listSnapshots, saveSnapshot, snapshotOf } from './sim/world';
 
-const PORT = Number(process.env.PORT ?? 3001);
+const { PORT } = env();
 
 const app = express();
 app.get('/health', (_req, res) => res.json({ ok: true }));

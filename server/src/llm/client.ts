@@ -1,8 +1,9 @@
 // LLM access: a 2-wide request queue, JSON-only parsing with one retry and a
 // safe default, token logging, and a deterministic mock (MOCK_LLM=1).
 import Anthropic from '@anthropic-ai/sdk';
+import { env } from '../config/env';
 
-export const MODEL = process.env.LLM_MODEL || 'claude-haiku-4-5-20251001';
+export const MODEL = env().LLM_MODEL;
 const MAX_CONCURRENT = 2;
 
 export interface PromptSpec<Ctx, Out> {
@@ -17,8 +18,8 @@ export interface PromptSpec<Ctx, Out> {
   fallback(ctx: Ctx): Out;
 }
 
-const mockRequested = process.env.MOCK_LLM === '1';
-const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
+const mockRequested = env().MOCK_LLM === '1';
+const hasKey = Boolean(env().ANTHROPIC_API_KEY);
 export const MOCK = mockRequested || !hasKey;
 if (!mockRequested && !hasKey) console.warn('[llm] ANTHROPIC_API_KEY not set — running with MOCK_LLM');
 console.log(`[llm] mode: ${MOCK ? 'MOCK' : `live (${MODEL})`}`);

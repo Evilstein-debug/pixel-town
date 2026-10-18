@@ -7,10 +7,20 @@ into one agent and watch it spread through conversation.
 ## Setup
 
 ```bash
-npm install
-cp server/.env.example server/.env   # then put your key in ANTHROPIC_API_KEY
-npm run dev                          # client → http://localhost:5173, server → :3001
+pnpm install
+cp server/.env.example server/.env   # then fill in ANTHROPIC_API_KEY and the Neon URLs
+pnpm db:migrate                      # apply migrations (uses DATABASE_URL_UNPOOLED)
+pnpm db:seed                         # create a fresh sim with Asha, Rohan and Meera
+pnpm dev                             # client → http://localhost:5173, server → :3001
 ```
+
+- **Database:** Neon Postgres + pgvector via Drizzle. `DATABASE_URL` is the pooled (`-pooler`)
+  string the app uses; `DATABASE_URL_UNPOOLED` is the direct one for migrations. `STORE=memory`
+  runs with no database at all (nothing persists).
+- **Scripts:** `db:generate` (new migration from `server/src/db/schema.ts`), `db:migrate`,
+  `db:studio`, `db:seed`, `db:import-json <world.json>` (one-time import of an old save; refuses
+  a file it already imported), `test` (set `TEST_DATABASE_URL` to also run the postgres tests, e.g.
+  `docker run -d -p 5433:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17`).
 
 - **Live mode:** `ANTHROPIC_API_KEY=sk-ant-...` and `MOCK_LLM=0` in `server/.env`. Calls use
   `claude-haiku-4-5-20251001` (override with `LLM_MODEL`). Token usage is logged per call.
@@ -46,8 +56,6 @@ npm run dev                          # client → http://localhost:5173, server 
 | T | Seed a thought into the locked (or selected) agent |
 | Click agent | Select it in the inspector (doesn't lock) |
 
-Wrist/watch controls (R recenter, M mouse-mock, dwell-to-lock) come in the next phase.
-
 ## How the sim works
 
 - **Time:** 1 tick = 10 game minutes = 2.5 s real at 1×. Day 1 starts 07:00; agents sleep 22:00–07:00
@@ -75,13 +83,8 @@ Wrist/watch controls (R recenter, M mouse-mock, dwell-to-lock) come in the next 
 
 All payload types are in [`shared/events.ts`](shared/events.ts).
 
-**Watch → server** (namespace `/watch`): `wrist:orient { pitch, roll, yaw, ts }` — degrees, epoch
-ms, 30–60 Hz. The server relays it unchanged to browsers as `wrist:orient` and emits
-`watch:status { connected }` on connect/disconnect.
-
 **Server → browser:** `world:snapshot`, `world:tick`, `agent:path`, `memory:add`,
-`memory:retrieved`, `conversation`, `plan:update`, `log`, `wrist:orient`, `watch:status`,
-plus `snapshots:list`.
+`memory:retrieved`, `conversation`, `plan:update`, `log`, plus `snapshots:list`.
 
 **Browser → server:** `sim:control { cmd: 'pause'|'play'|'speed', value? }`,
 `event:seed { agentId, text }`, `replay:load { file }`, `snapshot:save`.
@@ -98,7 +101,7 @@ server/   Express + Socket.IO sim server, prompts, LLM client
 shared/   Map layout (ASCII), domain types, socket contract
 ```
 
-- Edit the map in `shared/map.ts`, then run `npx tsx server/scripts/check-map.ts` to verify row
+- Edit the map in `shared/map.ts`, then run `pnpm check-map` to verify row
   widths and that every location is reachable.
 - Art is procedural (`client/src/game/art/`). To use a real tileset, set `TEXTURE_SOURCE` in
   `client/src/game/textures.ts` to `spritesheet` and map each logical frame to an index.

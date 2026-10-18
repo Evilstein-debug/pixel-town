@@ -1,0 +1,14 @@
+packages:
+  - shared
+  - server
+  - client
+
+# pnpm skips dependency build scripts unless listed here.
+onlyBuiltDependencies:
+  - esbuild           # tsx, vite
+  - onnxruntime-node  # embedding model runtime (@huggingface/transformers)
+  - sharp             # image support pulled in by @huggingface/transformers
+
+# protobufjs' postinstall only prints a version notice.
+ignoredBuiltDependencies:
+  - protobufjs

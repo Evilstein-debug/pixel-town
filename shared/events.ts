@@ -1,21 +1,7 @@
-// Socket.IO contract. Share this file with the watch-backend teammate.
+// Socket.IO contract between the sim server and browsers.
 import type {
   AgentPublic, ConversationRecord, Facing, GameClock, LogEntry, Memory, PlanBlock, StatusIcon,
 } from './types';
-
-// ---------- Watch → server (namespace "/watch") ----------
-
-/** Degrees, epoch ms. Target 30–60 Hz. */
-export interface WristOrient {
-  pitch: number;
-  roll: number;
-  yaw: number;
-  ts: number;
-}
-
-export interface WatchToServerEvents {
-  'wrist:orient': (p: WristOrient) => void;
-}
 
 // ---------- Server → browser (default namespace "/") ----------
 
@@ -67,8 +53,6 @@ export interface ServerToClientEvents {
   conversation: (p: ConversationRecord) => void;
   'plan:update': (p: { agentId: string; plan: PlanBlock[] }) => void;
   log: (p: LogEntry) => void;
-  'wrist:orient': (p: WristOrient) => void;
-  'watch:status': (p: { connected: boolean }) => void;
   /** Saved snapshot file names, newest first. */
   'snapshots:list': (files: string[]) => void;
 }

@@ -2,10 +2,17 @@
   "name": "pixel-town",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["shared", "server", "client"],
+  "packageManager": "pnpm@10.15.0",
   "scripts": {
-    "dev": "concurrently -k -n server,client -c green,cyan \"npm:dev -w server\" \"npm:dev -w client\"",
-    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client"
+    "dev": "concurrently -k -n server,client -c green,cyan \"pnpm --filter @pixel-town/server dev\" \"pnpm --filter @pixel-town/client dev\"",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @pixel-town/server test",
+    "db:generate": "pnpm --filter @pixel-town/server db:generate",
+    "db:migrate": "pnpm --filter @pixel-town/server db:migrate",
+    "db:studio": "pnpm --filter @pixel-town/server db:studio",
+    "db:seed": "pnpm --filter @pixel-town/server db:seed",
+    "db:import-json": "pnpm --filter @pixel-town/server db:import-json",
+    "check-map": "pnpm --filter @pixel-town/server check-map"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

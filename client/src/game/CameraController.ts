@@ -1,6 +1,5 @@
-// Single place that moves the camera. Any input source (keyboard, wrist, mouse
-// mock) feeds a normalised pan velocity in [-1, 1]; this class turns it into
-// smooth, map-clamped camera motion.
+// Single place that moves the camera. Input (keyboard) feeds a normalised pan
+// velocity in [-1, 1]; this class turns it into smooth, map-clamped camera motion.
 import Phaser from 'phaser';
 import { bus, type CameraMode } from '../bus';
 
