@@ -36,9 +36,9 @@ export function memoryWorldStore(db: Db): WorldStore {
       return s ? copy(s) : null;
     },
 
-    async latestRunningSim() {
-      // Map order is insertion order, so the last running sim is the newest.
-      const s = [...t().sims.values()].filter((x) => x.status === 'running').at(-1);
+    async latestActiveSim() {
+      // Map order is insertion order, so the last one is the newest.
+      const s = [...t().sims.values()].filter((x) => x.status !== 'archived').at(-1);
       return s ? copy(s) : null;
     },
 

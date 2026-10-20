@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Executor } from '../../db/client';
 import { agents, agentState, conversationLines, conversations, plans, sims, snapshots } from '../../db/schema';
 import type { AgentRecord, AgentStateRecord, PlanRecord, SimRecord, StoredConversation, WorldStore } from '../types';
@@ -11,7 +11,13 @@ const toAgent = ({ createdAt: _createdAt, ...r }: AgentRow): AgentRecord => r;
 
 const toPlan = (r: typeof plans.$inferSelect): PlanRecord => r;
 
-export function postgresWorldStore(db: Executor): WorldStore {
+/**
+ * `inTransaction`: already inside a transaction, so multi-statement writes can run
+ * directly instead of opening a savepoint (two extra round trips each).
+ */
+export function postgresWorldStore(db: Executor, inTransaction: boolean): WorldStore {
+  const atomically = (fn: (tx: Executor) => Promise<void>) => (inTransaction ? fn(db) : db.transaction(fn));
+
   async function conversationsWithLines(rows: (typeof conversations.$inferSelect)[]): Promise<StoredConversation[]> {
     if (!rows.length) return [];
     const lines = await db
@@ -43,11 +49,11 @@ export function postgresWorldStore(db: Executor): WorldStore {
       return row ? toSim(row) : null;
     },
 
-    async latestRunningSim() {
+    async latestActiveSim() {
       const [row] = await db
         .select()
         .from(sims)
-        .where(eq(sims.status, 'running'))
+        .where(ne(sims.status, 'archived'))
         .orderBy(desc(sims.createdAt))
         .limit(1);
       return row ? toSim(row) : null;
@@ -110,14 +116,23 @@ export function postgresWorldStore(db: Executor): WorldStore {
 
     async insertPlans(rows) {
       if (!rows.length) return;
-      await db.transaction(async (tx) => {
-        for (const p of rows) {
-          await tx
-            .update(plans)
-            .set({ supersededAtGame: p.createdAtGame })
-            .where(and(eq(plans.agentId, p.agentId), isNull(plans.supersededAtGame)));
-          await tx.insert(plans).values({ ...p, supersededAtGame: null });
-        }
+      // Within the batch each plan is superseded by the agent's next one; the
+      // agent's current plan in the table is superseded by its first new one.
+      const firstAt = new Map<string, number>();
+      const inserts = rows.map((p, i) => {
+        if (!firstAt.has(p.agentId)) firstAt.set(p.agentId, p.createdAtGame);
+        const next = rows.slice(i + 1).find((q) => q.agentId === p.agentId);
+        return { ...p, supersededAtGame: next ? next.createdAtGame : null };
+      });
+      await atomically(async (tx) => {
+        await tx.execute(sql`
+          update ${plans} as p set superseded_at_game = v.at
+          from (
+            select unnest(${sql.param([...firstAt.keys()])}::uuid[]) as agent_id,
+                   unnest(${sql.param([...firstAt.values()])}::integer[]) as at
+          ) as v
+          where p.agent_id = v.agent_id and p.superseded_at_game is null`);
+        await tx.insert(plans).values(inserts);
       });
     },
 
@@ -136,7 +151,7 @@ export function postgresWorldStore(db: Executor): WorldStore {
 
     async insertConversations(rows) {
       if (!rows.length) return;
-      await db.transaction(async (tx) => {
+      await atomically(async (tx) => {
         await tx.insert(conversations).values(rows.map(({ lines: _lines, ...c }) => c));
         const lines = rows.flatMap((c) => c.lines.map((l) => ({ conversationId: c.id, ...l })));
         if (lines.length) await tx.insert(conversationLines).values(lines);

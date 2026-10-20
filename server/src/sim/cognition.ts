@@ -1,14 +1,16 @@
-// Perception, daily planning, importance scoring and reactive replanning.
+// Perception, daily planning and reactive replanning. (Importance is scored in
+// batch by the persister, which then calls maybeReplan.)
+import { randomUUID } from 'node:crypto';
 import { locationAt, parseHHMM, toHHMM, type Memory, type PlanBlock } from '@pixel-town/shared';
 import { runPrompt } from '../llm/client';
+import { publicMemory } from '../persist/records';
 import { locationName } from '../prompts/common';
 import { dailyPlanPrompt } from '../prompts/dailyPlan';
-import { importancePrompt } from '../prompts/importance';
 import { keepPriority } from '../prompts/planning';
 import { replanPrompt } from '../prompts/replan';
 import { updateAgent } from './behavior';
 import type { SimContext } from './context';
-import { retrieve, UNSCORED } from './memory';
+import { retrieve } from './memory';
 import { dayOf, minuteOfDay } from './time';
 import type { AgentState, WorldState } from './types';
 
@@ -17,21 +19,30 @@ export const REPLAN_THRESHOLD = 7;
 const REPLAN_COOLDOWN_MIN = 30;
 
 /** Retrieve and tell the UI which memories were pulled and why. */
-export async function recall(ctx: SimContext, agent: AgentState, query: string, k?: number) {
-  const r = await retrieve(ctx.world, agent.id, query, k);
-  if (r.results.length) ctx.io.emit('memory:retrieved', { agentId: agent.id, query, results: r.results });
-  return r.memories;
+export async function recall(ctx: SimContext, agent: AgentState, query: string, k?: number): Promise<Memory[]> {
+  const world = ctx.world;
+  const r = await retrieve(ctx.stores, world, agent.id, query, k);
+  if (r.results.length && ctx.isCurrent(world))
+    ctx.io.emit('memory:retrieved', { agentId: agent.id, query, results: r.results });
+  return r.memories.map(publicMemory);
 }
 
-/** Text of the seeded rumours this agent knows about. */
+/** Text of the seeded rumours this agent knows about, by seed id. */
 export function knownRumours(world: WorldState, agentId: string): Map<string, string> {
   const out = new Map<string, string>();
-  for (const m of world.memories) {
-    if (m.agentId !== agentId || !m.seedId) continue;
-    const seed = world.memories.find((s) => s.id === m.seedId);
-    if (seed) out.set(m.seedId, seed.text);
+  for (const id of world.rumours[agentId] ?? []) {
+    const seed = world.seeds[id];
+    if (seed) out.set(id, seed.text);
   }
   return out;
+}
+
+/** Keep plan history: every new plan is recorded and supersedes the previous one. */
+function recordPlan(world: WorldState, agent: AgentState) {
+  world.pending.addPlan({
+    id: randomUUID(), simId: world.simId, agentId: agent.id, day: agent.planDay, blocks: agent.plan,
+    createdAtGame: world.clock, supersededAtGame: null,
+  });
 }
 
 export function perceive(ctx: SimContext, agent: AgentState) {
@@ -67,36 +78,13 @@ export async function makeDailyPlan(ctx: SimContext, agent: AgentState) {
     if (!ctx.isCurrent(world)) return;
     // A seed may have landed while we were planning; it stays on top.
     agent.plan = keepPriority(agent.plan, plan, minuteOfDay(world.clock));
+    recordPlan(world, agent);
     ctx.io.emit('plan:update', { agentId: agent.id, plan: agent.plan });
     const summary = agent.plan.map((b) => `${b.start} ${b.activity}`).join('; ');
-    await ctx.addMemory(agent.id, 'plan', `Plan for today: ${summary}`, 3);
-    ctx.log(`${agent.name} planned the day (${agent.plan.length} blocks)`);
+    await ctx.addMemory(agent.id, 'plan', `Plan for today: ${summary}`, { importance: 3 });
+    ctx.log(`${agent.name} planned the day (${agent.plan.length} blocks)`, 'plan', { agentId: agent.id });
   } finally {
     agent.busy = false;
-  }
-}
-
-let scoring = false;
-/** One batched importance call covering every unscored memory. */
-export async function scoreImportance(ctx: SimContext) {
-  if (scoring) return;
-  const world = ctx.world;
-  const pending = world.memories.filter((m) => m.importance === UNSCORED);
-  if (!pending.length) return;
-  scoring = true;
-  try {
-    const name = (id: string) => world.agents.find((a) => a.id === id)?.name ?? id;
-    const scores = await runPrompt(importancePrompt, {
-      items: pending.map((m) => ({ id: m.id, agentName: name(m.agentId), type: m.type, text: m.text })),
-    });
-    if (!ctx.isCurrent(world)) return;
-    for (const m of pending) {
-      m.importance = scores[m.id] ?? 3;
-      ctx.io.emit('memory:add', { agentId: m.agentId, memory: { ...m, embedding: [] } });
-      void maybeReplan(ctx, m);
-    }
-  } finally {
-    scoring = false;
   }
 }
 
@@ -140,7 +128,7 @@ async function replan(ctx: SimContext, mem: Memory, opts: { priority?: boolean }
   agent.lastReplanAt = world.clock;
 
   const now = minuteOfDay(world.clock);
-  const fact = (mem.seedId && world.memories.find((s) => s.id === mem.seedId)?.text) || mem.text;
+  const fact = (mem.seedId && world.seeds[mem.seedId]?.text) || mem.text;
   const here = locationAt(agent.tileX, agent.tileY)?.id ?? agent.homeId;
   const memories = await recall(ctx, agent, mem.text);
   const crowd = crowdLocation(world, agent);
@@ -155,6 +143,7 @@ async function replan(ctx: SimContext, mem: Memory, opts: { priority?: boolean }
   // Earlier priorities survive ordinary replans; a new priority takes the slot it asks for.
   const protectedOld = agent.plan.filter((b) => b.priority && !(priority && overlaps(b, rest[0])));
   agent.plan = [...past, ...keepPriority(protectedOld, rest, now)];
+  recordPlan(world, agent);
   ctx.io.emit('plan:update', { agentId: agent.id, plan: agent.plan });
 
   const changed = rest.find((b) => !before.has(`${b.locationId}|${b.activity}`)) ?? rest[0];
@@ -162,13 +151,15 @@ async function replan(ctx: SimContext, mem: Memory, opts: { priority?: boolean }
     priority
       ? `⭐ ${agent.name} drops everything: ${rest[0].activity} (${locationName(rest[0].locationId)})`
       : `${agent.name} changed plans: ${changed ? `${changed.start} ${changed.activity}` : 'rest of day'}`,
+    priority ? 'priority' : 'replan',
+    { agentId: agent.id, triggerMemoryId: mem.id, seedId: mem.seedId ?? null },
   );
   // Start moving now rather than on the next tick.
   if (priority && !agent.busy && !agent.talkingWith) {
     agent.targetLocationId = null;
     updateAgent(ctx, agent);
   }
-  await ctx.addMemory(agent.id, 'plan', `${priority ? 'Made top priority' : 'Changed plans after learning'}: ${fact}`, 5);
+  await ctx.addMemory(agent.id, 'plan', `${priority ? 'Made top priority' : 'Changed plans after learning'}: ${fact}`, { importance: 5 });
 }
 
 function overlaps(a: PlanBlock, b: PlanBlock | undefined) {

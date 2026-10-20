@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { Executor } from '../../db/client';
 import { memories, memoryEvidence } from '../../db/schema';
 import type { MemoryRecord, MemoryStore } from '../types';
@@ -70,6 +71,31 @@ export function postgresMemoryStore(db: Executor): MemoryStore {
         .from(memoryEvidence)
         .where(eq(memoryEvidence.reflectionId, reflectionId));
       return rows.map((r) => r.id);
+    },
+
+    async listEvidence(simId) {
+      const reflection = alias(memories, 'reflection');
+      return db
+        .select({ reflectionId: memoryEvidence.reflectionId, evidenceId: memoryEvidence.evidenceId })
+        .from(memoryEvidence)
+        .innerJoin(reflection, eq(reflection.id, memoryEvidence.reflectionId))
+        .where(eq(reflection.simId, simId));
+    },
+
+    async listSeeded(simId) {
+      const rows = await db
+        .select()
+        .from(memories)
+        .where(and(eq(memories.simId, simId), eq(memories.type, 'seeded')));
+      return rows.map(toMemory);
+    },
+
+    async rumourLinks(simId) {
+      // Served by the partial index on (sim_id, agent_id) where seed_id is not null.
+      return db
+        .selectDistinct({ agentId: memories.agentId, seedId: sql<string>`${memories.seedId}` })
+        .from(memories)
+        .where(and(eq(memories.simId, simId), isNotNull(memories.seedId)));
     },
   };
 }

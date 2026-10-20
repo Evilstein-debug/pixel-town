@@ -1,10 +1,12 @@
-// Creates a fresh sim (Day 1, 07:00, everyone asleep at home) from the built-in agents.
+// Creates a fresh sim (Day 1, 07:00, everyone asleep at home) from the built-in
+// agents, with a "fresh start" snapshot to come back to.
 import { randomUUID } from 'node:crypto';
-import { locationAt } from '@pixel-town/shared';
 import { AGENT_SEEDS } from '../agents/seed';
+import { initialAgentState } from '../persist/records';
+import { FRESH_START_SNAPSHOT, type SnapshotState } from '../persist/snapshots';
 import { defaultSimConfig } from '../sim/config';
 import { START_CLOCK } from '../sim/time';
-import type { AgentRecord, AgentStateRecord, SimRecord, Stores } from '../store/types';
+import type { AgentRecord, SimRecord, Stores } from '../store/types';
 
 export interface SeedResult {
   sim: SimRecord;
@@ -41,27 +43,13 @@ export function seedDefaultSim(
     }));
     await tx.world.insertAgents(agents);
 
-    const states: AgentStateRecord[] = AGENT_SEEDS.map((s, i) => ({
-      agentId: agents[i].id,
-      tileX: s.tileX,
-      tileY: s.tileY,
-      facing: 'down',
-      currentAction: 'Sleeping',
-      statusIcon: 'sleep',
-      locationId: locationAt(s.tileX, s.tileY)?.id ?? null,
-      path: [],
-      awake: false,
-      runtime: {
-        targetLocationId: s.homeId,
-        planDay: 0,
-        talkingWith: null,
-        talkUntil: 0,
-        lastPerceived: { locationId: s.homeId, nearby: [] },
-        lastReplanAt: null,
-      },
-      updatedAtGame: START_CLOCK,
-    }));
+    const states = AGENT_SEEDS.map((s, i) => initialAgentState(agents[i], { x: s.tileX, y: s.tileY }, START_CLOCK));
     await tx.world.upsertAgentStates(states);
+
+    const state: SnapshotState = {
+      version: 2, gameMinutes: START_CLOCK, paused: false, speed: 1, runtime: { lastTalk: {} }, agents: states, plans: [],
+    };
+    await tx.world.saveSnapshot({ id: randomUUID(), simId: sim.id, name: FRESH_START_SNAPSHOT, atGame: START_CLOCK, state });
 
     return { sim, agents };
   });

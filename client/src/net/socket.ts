@@ -38,7 +38,7 @@ socket.on('plan:update', ({ agentId, plan }) => {
   changed();
 });
 socket.on('log', addLog);
-socket.on('snapshots:list', (files) => {
-  world.snapshots = files;
+socket.on('snapshots:list', (snapshots) => {
+  world.snapshots = snapshots;
   changed();
 });

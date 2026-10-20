@@ -2,7 +2,8 @@
 // via useWorld(); Phaser gets discrete events through the bus.
 import { useSyncExternalStore } from 'react';
 import type {
-  AgentPublic, ConversationRecord, LogEntry, Memory, PlanBlock, RetrievalResult, WorldSnapshot, WorldTick,
+  AgentPublic, ConversationRecord, LogEntry, Memory, PlanBlock, RetrievalResult, SnapshotInfo, WorldSnapshot,
+  WorldTick,
 } from '@pixel-town/shared';
 
 export interface Retrieved { query: string; results: RetrievalResult[]; at: number }
@@ -18,7 +19,7 @@ export interface ClientWorld {
   plans: Record<string, PlanBlock[]>;
   conversations: ConversationRecord[];
   log: LogEntry[];
-  snapshots: string[];
+  snapshots: SnapshotInfo[];
   retrieved: Record<string, Retrieved>;
   /** memory id → Date.now() when it arrived (for the flash-in effect). */
   arrivedAt: Record<string, number>;

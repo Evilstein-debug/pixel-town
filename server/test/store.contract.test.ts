@@ -47,14 +47,18 @@ describe.each(storeFactories)('$name store', (factory) => {
       });
     });
 
-    it('finds the newest running sim', async () => {
+    it('finds the newest sim that is not archived', async () => {
       const older = await stores.world.createSim(newSim());
       created.push(older.id);
       const newer = await stores.world.createSim(newSim());
       created.push(newer.id);
+      expect((await stores.world.latestActiveSim())?.id).toBe(newer.id);
       const paused = await stores.world.createSim(newSim({ status: 'paused' }));
       created.push(paused.id);
-      expect((await stores.world.latestRunningSim())?.id).toBe(newer.id);
+      expect((await stores.world.latestActiveSim())?.id).toBe(paused.id);
+      const archived = await stores.world.createSim(newSim({ status: 'archived' }));
+      created.push(archived.id);
+      expect((await stores.world.latestActiveSim())?.id).toBe(paused.id);
     });
 
     it('enforces a unique import hash', async () => {
@@ -184,6 +188,20 @@ describe.each(storeFactories)('$name store', (factory) => {
       await stores.memories.insertEvidence([{ reflectionId: r.id, evidenceId: e1.id }, { reflectionId: r.id, evidenceId: e2.id }]);
       await stores.memories.insertEvidence([{ reflectionId: r.id, evidenceId: e1.id }]); // duplicate is ignored
       expect((await stores.memories.evidenceFor(r.id)).sort()).toEqual([e1.id, e2.id].sort());
+      expect(await stores.memories.listEvidence(sim.id)).toHaveLength(2);
+    });
+
+    it('lists seeded memories and which agents carry which rumour', async () => {
+      const { sim, asha, rohan } = await setup();
+      const seed = newMemory(sim.id, asha.id, { type: 'seeded', importance: 8 });
+      const told = [1, 2].map(() => newMemory(sim.id, rohan.id, { type: 'conversation', seedId: seed.id }));
+      await stores.memories.insertMemories([{ ...seed, seedId: seed.id }, ...told, newMemory(sim.id, rohan.id)]);
+      expect((await stores.memories.listSeeded(sim.id)).map((m) => m.id)).toEqual([seed.id]);
+      const links = await stores.memories.rumourLinks(sim.id);
+      expect(links.sort((a, b) => a.agentId.localeCompare(b.agentId))).toEqual(
+        [{ agentId: asha.id, seedId: seed.id }, { agentId: rohan.id, seedId: seed.id }]
+          .sort((a, b) => a.agentId.localeCompare(b.agentId)),
+      );
     });
   });
 

@@ -169,8 +169,8 @@ export interface WorldStore {
   createSim(sim: NewSim): Promise<SimRecord>;
   getSim(id: string): Promise<SimRecord | null>;
   findSimByImportHash(hash: string): Promise<SimRecord | null>;
-  /** Most recently created sim with status `running`. */
-  latestRunningSim(): Promise<SimRecord | null>;
+  /** Most recently created sim that isn't archived (running or paused). */
+  latestActiveSim(): Promise<SimRecord | null>;
   updateSim(id: string, patch: SimPatch): Promise<void>;
   /** Removes the sim and everything belonging to it. */
   deleteSim(id: string): Promise<void>;
@@ -213,6 +213,12 @@ export interface MemoryStore {
   insertEvidence(links: { reflectionId: string; evidenceId: string }[]): Promise<void>;
   /** Evidence memory ids for a reflection. */
   evidenceFor(reflectionId: string): Promise<string[]>;
+  /** Every evidence link between memories of a sim. */
+  listEvidence(simId: string): Promise<{ reflectionId: string; evidenceId: string }[]>;
+  /** The sim's seeded memories (rumour sources). */
+  listSeeded(simId: string): Promise<MemoryRecord[]>;
+  /** Which agents hold a memory carrying which seeded rumour (distinct pairs). */
+  rumourLinks(simId: string): Promise<{ agentId: string; seedId: string }[]>;
 }
 
 export interface LogStore {
@@ -230,5 +236,7 @@ export interface Stores {
   readonly log: LogStore;
   /** Runs `fn` atomically: all writes made through the given stores commit or none do. */
   transaction<T>(fn: (tx: Stores) => Promise<T>): Promise<T>;
+  /** A cheap round trip; wakes a suspended Neon compute. */
+  ping(): Promise<void>;
   close(): Promise<void>;
 }

@@ -59,17 +59,17 @@ function SnapshotMenu() {
           <PixelButton onClick={() => socket.emit('snapshot:save')}>+ SAVE CURRENT</PixelButton>
           <ul className="mt-2 max-h-64 overflow-y-auto font-mono text-xs">
             {w.snapshots.length === 0 && <li className="px-1 py-2 opacity-60">No snapshots yet.</li>}
-            {w.snapshots.map((f) => (
-              <li key={f}>
+            {w.snapshots.map((s) => (
+              <li key={s.id}>
                 <button
                   className="w-full truncate px-1 py-1 text-left hover:bg-parchment-dark"
-                  title={`Load ${f}`}
+                  title={`Load ${s.name} (${formatClock(s.atGame)})`}
                   onClick={() => {
-                    socket.emit('replay:load', { file: f });
+                    socket.emit('replay:load', { snapshotId: s.id });
                     setOpen(false);
                   }}
                 >
-                  ↺ {f.replace(/\.json$/, '')}
+                  ↺ {s.name}
                 </button>
               </li>
             ))}

@@ -71,7 +71,8 @@ async function callOnce(system: string, user: string, maxTokens: number, kind: s
 
 export async function runPrompt<Ctx, Out>(spec: PromptSpec<Ctx, Out>, ctx: Ctx): Promise<Out> {
   if (MOCK) {
-    await new Promise((r) => setTimeout(r, 200 + Math.random() * 300));
+    const latency = env().MOCK_LLM_LATENCY_MS ?? 200 + Math.random() * 300;
+    if (latency) await new Promise((r) => setTimeout(r, latency));
     return spec.mock(ctx);
   }
   const { system, user } = spec.build(ctx);

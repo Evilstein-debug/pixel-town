@@ -19,7 +19,9 @@ pnpm dev                             # client → http://localhost:5173, server 
   runs with no database at all (nothing persists).
 - **Scripts:** `db:generate` (new migration from `server/src/db/schema.ts`), `db:migrate`,
   `db:studio`, `db:seed`, `db:import-json <world.json>` (one-time import of an old save; refuses
-  a file it already imported), `test` (set `TEST_DATABASE_URL` to also run the postgres tests, e.g.
+  a file it already imported), `snapshot:export <snapshotId> [file]` / `snapshot:import <file>`
+  (JSON copy of a snapshot and its history, for sharing or debugging), `test` (set
+  `TEST_DATABASE_URL` to also run the postgres tests against a disposable database, e.g. a Neon branch or
   `docker run -d -p 5433:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17`).
 
 - **Live mode:** `ANTHROPIC_API_KEY=sk-ant-...` and `MOCK_LLM=0` in `server/.env`. Calls use
@@ -32,7 +34,7 @@ pnpm dev                             # client → http://localhost:5173, server 
 
 ## Demo script (≈5 min)
 
-1. Load **Snapshots → 00-fresh-start-day1-0700** (always regenerated at server boot).
+1. Load **Snapshots → 00-fresh-start-day1-0700** (created with every new sim; loading it forks a fresh copy).
 2. Press **Tab** to lock onto Asha, **3** for 4× speed.
 3. Around 08:30 press **T**, type `free samosas at the café at 3pm`, **Enter**.
    Asha's memory panel shows the gold *seeded* memory, and she **drops everything**: her plan gets a
@@ -76,8 +78,10 @@ pnpm dev                             # client → http://localhost:5173, server 
   lines, and chats are kept short when someone is on a priority errand.
 - **Rumour tracking:** conversation memories that repeat a seeded memory (by embedding similarity)
   get `seedId`, shown as gold dashed rows in the inspector.
-- **Persistence:** the world is written to `server/data/world.json` every tick; named snapshots live
-  in `server/data/snapshots/`. Loading one restores the full state and keeps running live.
+- **Persistence:** Postgres is the source of truth. Writes are buffered during a tick and persisted
+  in one transaction per tick (at most one in flight; a failed batch is retried next tick). A restart
+  resumes the newest non-archived sim (or `SIM_ID`). Snapshots are rows; loading one forks a new sim
+  from it and archives the current one, so history is never rewritten.
 
 ## Socket contract
 

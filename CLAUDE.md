@@ -18,6 +18,7 @@ pnpm --filter @pixel-town/client build       # production client build
 pnpm test                             # vitest (server); add TEST_DATABASE_URL to also run the postgres suite
 pnpm --filter @pixel-town/server exec vitest run test/env.test.ts   # one test file
 pnpm db:generate | db:migrate | db:studio | db:seed | db:import-json <file>
+pnpm snapshot:export <snapshotId> [file] | snapshot:import <file>
 pnpm check-map                        # check the ASCII map after editing shared/map.ts
 ```
 
@@ -25,7 +26,7 @@ There is no linter. Use pnpm, not npm: dependency build scripts are allowlisted 
 
 - **Mock mode:** with `MOCK_LLM=1`, or with no API key, every prompt returns its deterministic `mock()` output. The whole sim runs offline this way, rumour demo included. Use it for dev and verification so you don't spend tokens.
 - The first server start downloads the `all-MiniLM-L6-v2` embedding model. If that fails, retrieval falls back to keyword overlap.
-- `server/data/world.json` is rewritten every tick. `server/data/snapshots/00-fresh-start-day1-0700.json` is regenerated at every boot. Both are gitignored runtime state.
+- State lives in Postgres (or in-process with `STORE=memory`). There is no file persistence; don't add any.
 
 ## Architecture
 

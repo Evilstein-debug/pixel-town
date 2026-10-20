@@ -64,5 +64,20 @@ export function memoryMemoryStore(db: Db): MemoryStore {
     async evidenceFor(reflectionId) {
       return t().evidence.filter((e) => e.reflectionId === reflectionId).map((e) => e.evidenceId);
     },
+
+    async listEvidence(simId) {
+      return t().evidence.filter((e) => t().memories.get(e.reflectionId)?.simId === simId).map(copy);
+    },
+
+    async listSeeded(simId) {
+      return [...t().memories.values()].filter((m) => m.simId === simId && m.type === 'seeded').map(copy);
+    },
+
+    async rumourLinks(simId) {
+      const seen = new Map<string, { agentId: string; seedId: string }>();
+      for (const m of t().memories.values())
+        if (m.simId === simId && m.seedId) seen.set(`${m.agentId}|${m.seedId}`, { agentId: m.agentId, seedId: m.seedId });
+      return [...seen.values()];
+    },
   };
 }

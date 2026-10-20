@@ -1,4 +1,5 @@
 // Conversations: nearby awake agents may chat; the chat spreads information.
+import { randomUUID } from 'node:crypto';
 import { formatClock, locationAt, toHHMM, type ConversationRecord } from '@pixel-town/shared';
 import { runPrompt } from '../llm/client';
 import { locationName } from '../prompts/common';
@@ -8,7 +9,7 @@ import { chebyshev, currentBlock, halt } from './behavior';
 import { knownRumours, recall } from './cognition';
 import type { SimContext } from './context';
 import { minuteOfDay, TICK_MINUTES } from './time';
-import { pairKey, type AgentState } from './types';
+import { CONVERSATION_TAIL, pairKey, type AgentState } from './types';
 
 const TALK_DISTANCE = 2;
 const TALK_COOLDOWN_MIN = 60;
@@ -61,7 +62,7 @@ async function converse(ctx: SimContext, a: AgentState, b: AgentState) {
     const ok = aNews.length > 0 || bNews.length > 0 || (await runPrompt(shouldTalkPrompt, { a, b, place, aAboutB }));
     if (!ctx.isCurrent(world)) return;
     if (!ok) {
-      ctx.log(`${a.name} waved at ${b.name} but kept going`);
+      ctx.log(`${a.name} waved at ${b.name} but kept going`, 'talk_declined', { agentIds: [a.id, b.id] });
       return;
     }
     const situation = (x: AgentState) => `${x.action} at ${place}; news worth sharing`;
@@ -76,10 +77,14 @@ async function converse(ctx: SimContext, a: AgentState, b: AgentState) {
     if (!ctx.isCurrent(world)) return;
 
     const record: ConversationRecord = {
-      id: `c${++world.seq}`, participants: [a.id, b.id], lines: convo.lines, ts: world.clock, locationId: placeId,
+      id: randomUUID(), participants: [a.id, b.id], lines: convo.lines, ts: world.clock, locationId: placeId,
     };
+    world.pending.addConversation({
+      id: record.id, simId: world.simId, locationId: placeId, startedAtGame: world.clock, participants: [a.id, b.id],
+      lines: convo.lines.map((l, seq) => ({ seq, ...l })),
+    });
     world.conversations.push(record);
-    if (world.conversations.length > 50) world.conversations.shift();
+    if (world.conversations.length > CONVERSATION_TAIL) world.conversations.shift();
     // One line per tick keeps speech bubbles readable at any sim speed.
     a.talkingWith = b.id;
     b.talkingWith = a.id;
@@ -87,12 +92,19 @@ async function converse(ctx: SimContext, a: AgentState, b: AgentState) {
     // Cooldown runs from the end of the chat, so they part ways before chatting again.
     world.lastTalk[pairKey(a.id, b.id)] = a.talkUntil;
     ctx.io.emit('conversation', record);
-    ctx.log(`${a.name} and ${b.name} are chatting${placeId ? ` at ${place}` : ' on the way'}`);
+    ctx.log(`${a.name} and ${b.name} are chatting${placeId ? ` at ${place}` : ' on the way'}`, 'talk', {
+      conversationId: record.id, agentIds: [a.id, b.id], locationId: placeId,
+    });
     for (const [self, other] of [[a, b], [b, a]] as const) {
       const learned = convo.learned[self.id];
-      if (learned) ctx.log(`${other.name} told ${self.name}: ${learned}`);
+      if (learned) ctx.log(`${other.name} told ${self.name}: ${learned}`, 'told', {
+        from: other.id, to: self.id, conversationId: record.id, fact: learned,
+      });
       // The teller's own news counts too, so both sides' memories carry the rumour tag.
-      await ctx.addMemory(self.id, 'conversation', convo.summaries[self.id], undefined, learned ?? convo.learned[other.id] ?? undefined);
+      await ctx.addMemory(self.id, 'conversation', convo.summaries[self.id], {
+        factHint: learned ?? convo.learned[other.id] ?? undefined,
+        sourceRef: { conversationId: record.id },
+      });
     }
     console.log(`[talk] ${formatClock(world.clock)} ${a.name} ↔ ${b.name}: ${convo.lines.length} lines`);
   } finally {

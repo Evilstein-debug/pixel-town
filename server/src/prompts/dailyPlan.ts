@@ -40,7 +40,7 @@ const CANNED: Record<string, PlanBlock[]> = {
 };
 
 function canned(ctx: DailyPlanCtx): PlanBlock[] {
-  let plan = CANNED[ctx.agent.id] ?? [b('07:00', '22:00', ctx.agent.homeId, 'Pottering about')];
+  let plan = CANNED[ctx.agent.slug] ?? [b('07:00', '22:00', ctx.agent.homeId, 'Pottering about')];
   for (const fact of ctx.seedTexts) plan = planAroundNews(plan, fact, DAY_START, `Going for: ${fact}`);
   return plan;
 }

@@ -5,6 +5,14 @@ import type {
 
 // ---------- Server → browser (default namespace "/") ----------
 
+/** A saved checkpoint the browser can restore. */
+export interface SnapshotInfo {
+  id: string;
+  name: string;
+  /** Game minutes when it was taken. */
+  atGame: GameClock;
+}
+
 export interface WorldSnapshot {
   mapId: string;
   clock: GameClock;
@@ -16,7 +24,8 @@ export interface WorldSnapshot {
   memories: Memory[];
   plans: Record<string, PlanBlock[]>;
   conversations: ConversationRecord[];
-  snapshots: string[];
+  /** This sim's snapshots and its ancestors', newest first. */
+  snapshots: SnapshotInfo[];
 }
 
 export interface TickAgent {
@@ -53,8 +62,7 @@ export interface ServerToClientEvents {
   conversation: (p: ConversationRecord) => void;
   'plan:update': (p: { agentId: string; plan: PlanBlock[] }) => void;
   log: (p: LogEntry) => void;
-  /** Saved snapshot file names, newest first. */
-  'snapshots:list': (files: string[]) => void;
+  'snapshots:list': (snapshots: SnapshotInfo[]) => void;
 }
 
 // ---------- Browser → server ----------
@@ -67,6 +75,7 @@ export interface SimControl {
 export interface ClientToServerEvents {
   'sim:control': (p: SimControl) => void;
   'event:seed': (p: { agentId: string; text: string }) => void;
-  'replay:load': (p: { file: string }) => void;
+  /** Restores a snapshot by forking a new sim from it; the current sim is archived. */
+  'replay:load': (p: { snapshotId: string }) => void;
   'snapshot:save': () => void;
 }

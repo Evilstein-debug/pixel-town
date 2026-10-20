@@ -90,7 +90,7 @@ export function updateAgent(ctx: SimContext, agent: AgentState) {
     } else {
       agent.asleep = true;
       agent.action = 'Sleeping';
-      ctx.log(`${agent.name} went to sleep`);
+      ctx.log(`${agent.name} went to sleep`, 'sleep', { agentId: agent.id });
     }
     return;
   }

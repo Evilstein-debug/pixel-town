@@ -5,30 +5,40 @@ import {
   type LegacyWorld,
 } from '../src/setup/importLegacyWorld';
 import { pairKey } from '../src/sim/types';
-import { createWorld } from '../src/sim/world';
 import type { Stores } from '../src/store/types';
 import { storeFactories, vec } from './support/stores';
 
 /** A legacy world in the exact shape the old server wrote to world.json. */
 function legacyWorld(): LegacyWorld {
-  const w = createWorld();
-  w.clock = 900;
-  w.agents[0].plan = [{ start: '07:00', end: '22:00', locationId: 'cafe', activity: 'Run the café', priority: true }];
-  w.agents[0].planDay = 1;
-  w.agents[0].asleep = false;
-  w.agents[0].lastPerceived.nearby = ['meera'];
-  w.memories = [
-    { id: 'm1', agentId: 'asha', createdAt: 500, lastAccessed: 520, type: 'seeded', text: 'free samosas at 3pm', importance: 8, embedding: vec(1), seedId: 'm1' },
-    { id: 'm2', agentId: 'meera', createdAt: 600, lastAccessed: 600, type: 'conversation', text: 'Asha said free samosas', importance: 0, embedding: [], seedId: 'm1' },
-    { id: 'm3', agentId: 'rohan', createdAt: 610, lastAccessed: 610, type: 'observation', text: 'Arrived at the library.', importance: 2, embedding: [0.1, 0.2] },
-    { id: 'm4', agentId: 'rohan', createdAt: 620, lastAccessed: 620, type: 'plan', text: 'Plan', importance: 3, embedding: vec(4), seedId: 'gone' },
-  ];
-  w.conversations = [{
-    id: 'c5', participants: ['asha', 'meera'], ts: 590, locationId: 'cafe',
-    lines: [{ speakerId: 'asha', text: 'Samosas!' }, { speakerId: 'meera', text: 'Lovely.' }],
-  }];
-  w.log = [{ ts: 420, text: 'Simulation started' }, { ts: 590, text: 'Asha and Meera are chatting' }];
-  w.lastTalk = { [pairKey('asha', 'meera')]: 610 };
+  const agent = (id: string, homeId: string, tileX: number, tileY: number) => ({
+    id, name: id[0].toUpperCase() + id.slice(1), age: 30, occupation: 'Tester', bio: `${id} bio`,
+    relationships: '', homeId, appearance: { shirt: '#000000', hair: '#111111', skin: '#222222', pants: '#333333' },
+    tileX, tileY, facing: 'down', path: [], stepMs: 0, targetLocationId: homeId, action: 'Sleeping', plan: [] as unknown[],
+    planDay: 0, asleep: true, talkingWith: null, talkUntil: 0, busy: false,
+    lastPerceived: { locationId: homeId, nearby: [] as string[] }, lastReplanAt: -Infinity,
+  });
+  const asha = agent('asha', 'asha_house', 5, 4);
+  asha.plan = [{ start: '07:00', end: '22:00', locationId: 'cafe', activity: 'Run the café', priority: true }];
+  asha.planDay = 1;
+  asha.asleep = false;
+  asha.lastPerceived.nearby = ['meera'];
+  const w = {
+    version: 1, clock: 900, paused: false, speed: 1,
+    agents: [asha, agent('rohan', 'rohan_house', 34, 4), agent('meera', 'meera_house', 5, 24)],
+    memories: [
+      { id: 'm1', agentId: 'asha', createdAt: 500, lastAccessed: 520, type: 'seeded', text: 'free samosas at 3pm', importance: 8, embedding: vec(1), seedId: 'm1' },
+      { id: 'm2', agentId: 'meera', createdAt: 600, lastAccessed: 600, type: 'conversation', text: 'Asha said free samosas', importance: 0, embedding: [], seedId: 'm1' },
+      { id: 'm3', agentId: 'rohan', createdAt: 610, lastAccessed: 610, type: 'observation', text: 'Arrived at the library.', importance: 2, embedding: [0.1, 0.2] },
+      { id: 'm4', agentId: 'rohan', createdAt: 620, lastAccessed: 620, type: 'plan', text: 'Plan', importance: 3, embedding: vec(4), seedId: 'gone' },
+    ],
+    log: [{ ts: 420, text: 'Simulation started' }, { ts: 590, text: 'Asha and Meera are chatting' }],
+    conversations: [{
+      id: 'c5', participants: ['asha', 'meera'], ts: 590, locationId: 'cafe',
+      lines: [{ speakerId: 'asha', text: 'Samosas!' }, { speakerId: 'meera', text: 'Lovely.' }],
+    }],
+    lastTalk: { [pairKey('asha', 'meera')]: 610 },
+    seq: 5,
+  };
   // Round-trip through JSON like the real file (-Infinity becomes null).
   return legacyWorldSchema.parse(JSON.parse(JSON.stringify(w)));
 }

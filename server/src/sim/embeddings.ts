@@ -2,7 +2,9 @@
 // can't load (offline, etc.) relevance falls back to keyword overlap.
 import { EMBEDDING_MODEL } from '../config/embedding';
 
-type Extractor = (text: string, opts: { pooling: 'mean'; normalize: boolean }) => Promise<{ data: Float32Array }>;
+type Extractor = (
+  text: string | string[], opts: { pooling: 'mean'; normalize: boolean },
+) => Promise<{ data: Float32Array; dims: number[] }>;
 
 let extractor: Extractor | null = null;
 let status: 'loading' | 'ready' | 'fallback' = 'loading';
@@ -23,12 +25,18 @@ export const embeddingsReady = () => status === 'ready';
 
 /** Returns [] when the model isn't available; callers then use keyword relevance. */
 export async function embed(text: string): Promise<number[]> {
-  if (!extractor) return [];
+  return (await embedBatch([text]))[0];
+}
+
+/** One model call for many texts. Each result is [] if the model isn't available. */
+export async function embedBatch(texts: string[]): Promise<number[][]> {
+  if (!extractor || !texts.length) return texts.map(() => []);
   try {
-    const out = await extractor(text, { pooling: 'mean', normalize: true });
-    return Array.from(out.data, (v) => Math.round(v * 1e4) / 1e4);
+    const out = await extractor(texts, { pooling: 'mean', normalize: true });
+    const dim = out.dims[out.dims.length - 1];
+    return texts.map((_, i) => Array.from(out.data.subarray(i * dim, (i + 1) * dim)));
   } catch {
-    return [];
+    return texts.map(() => []);
   }
 }
 

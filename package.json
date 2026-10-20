@@ -12,7 +12,9 @@
     "db:studio": "pnpm --filter @pixel-town/server db:studio",
     "db:seed": "pnpm --filter @pixel-town/server db:seed",
     "db:import-json": "pnpm --filter @pixel-town/server db:import-json",
-    "check-map": "pnpm --filter @pixel-town/server check-map"
+    "check-map": "pnpm --filter @pixel-town/server check-map",
+    "snapshot:export": "pnpm --filter @pixel-town/server snapshot:export",
+    "snapshot:import": "pnpm --filter @pixel-town/server snapshot:import"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

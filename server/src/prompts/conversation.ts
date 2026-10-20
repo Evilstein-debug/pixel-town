@@ -93,25 +93,26 @@ export const conversationPrompt: PromptSpec<ConversationCtx, ConversationOut> = 
       `Then, for each person, write a one-sentence memory of the chat from their point of view in third person, ` +
       `including any NEW facts they learned with the exact details (e.g. "Asha told Rohan there are free samosas at Chai & Co. at 3pm."). ` +
       `Also give the new fact each learned, or null.\n\n` +
-      `Respond with JSON: {"lines":[{"speaker":"${c.a.id}"|"${c.b.id}","text":"..."}],` +
-      `"summaries":{"${c.a.id}":"...","${c.b.id}":"..."},"learned":{"${c.a.id}":"..."|null,"${c.b.id}":"..."|null}}`,
+      // The model sees short slugs, not uuids; parse() maps them back to agent ids.
+      `Respond with JSON: {"lines":[{"speaker":"${c.a.slug}"|"${c.b.slug}","text":"..."}],` +
+      `"summaries":{"${c.a.slug}":"...","${c.b.slug}":"..."},"learned":{"${c.a.slug}":"..."|null,"${c.b.slug}":"..."|null}}`,
   }),
   parse: (json, { a, b, hurry }) => {
     if (!isRecord(json) || !Array.isArray(json.lines) || !isRecord(json.summaries)) return null;
-    const ids = new Set([a.id, b.id]);
+    const idOf = new Map([[a.slug, a.id], [b.slug, b.id]]);
     const lines = json.lines
-      .filter((l): l is { speaker: string; text: string } => isRecord(l) && ids.has(l.speaker as string) && typeof l.text === 'string')
-      .map((l) => ({ speakerId: l.speaker, text: l.text.trim().slice(0, 140) }))
+      .filter((l): l is { speaker: string; text: string } => isRecord(l) && idOf.has(l.speaker as string) && typeof l.text === 'string')
+      .map((l) => ({ speakerId: idOf.get(l.speaker)!, text: l.text.trim().slice(0, 140) }))
       .slice(0, 10);
     const s = json.summaries;
     if (hurry) lines.splice(5);
-    if (lines.length < 2 || typeof s[a.id] !== 'string' || typeof s[b.id] !== 'string') return null;
+    if (lines.length < 2 || typeof s[a.slug] !== 'string' || typeof s[b.slug] !== 'string') return null;
     const learnedIn = isRecord(json.learned) ? json.learned : {};
-    const learned = (id: string) => (typeof learnedIn[id] === 'string' && learnedIn[id] ? (learnedIn[id] as string) : null);
+    const learned = (slug: string) => (typeof learnedIn[slug] === 'string' && learnedIn[slug] ? (learnedIn[slug] as string) : null);
     return {
       lines,
-      summaries: { [a.id]: s[a.id] as string, [b.id]: s[b.id] as string },
-      learned: { [a.id]: learned(a.id), [b.id]: learned(b.id) },
+      summaries: { [a.id]: s[a.slug] as string, [b.id]: s[b.slug] as string },
+      learned: { [a.id]: learned(a.slug), [b.id]: learned(b.slug) },
     };
   },
   mock,

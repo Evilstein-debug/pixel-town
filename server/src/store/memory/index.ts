@@ -23,6 +23,7 @@ export function createMemoryStores(): Stores {
         throw err;
       }
     },
+    async ping() {},
     async close() {},
   };
   return stores;
